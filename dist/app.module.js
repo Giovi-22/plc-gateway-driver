@@ -9,22 +9,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const TagManager_service_1 = require("./application/TagManager.service");
+const LogManager_service_1 = require("./application/LogManager.service");
 const Tag_controller_1 = require("./infrastructure/Tag.controller");
+const Log_controller_1 = require("./infrastructure/Log.controller");
 const Tag_gateway_1 = require("./infrastructure/gateways/Tag.gateway");
 const PLCDriver_factory_1 = require("./infrastructure/drivers/PLCDriver.factory");
 const JsonTagRepository_1 = require("./infrastructure/persistence/JsonTagRepository");
+const JsonLogRepository_1 = require("./infrastructure/persistence/JsonLogRepository");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [],
-        controllers: [Tag_controller_1.TagController],
+        controllers: [Tag_controller_1.TagController, Log_controller_1.LogController],
         providers: [
             TagManager_service_1.TagManagerService,
+            LogManager_service_1.LogManagerService,
             Tag_gateway_1.TagGateway,
             PLCDriver_factory_1.PLCDriverFactory,
             JsonTagRepository_1.JsonTagRepository,
+            JsonLogRepository_1.JsonLogRepository
         ],
     })
 ], AppModule);

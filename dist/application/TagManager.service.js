@@ -18,22 +18,26 @@ const common_1 = require("@nestjs/common");
 const Motor_1 = require("../domain/entities/Motor");
 const Tag_gateway_1 = require("../infrastructure/gateways/Tag.gateway");
 const JsonTagRepository_1 = require("../infrastructure/persistence/JsonTagRepository");
+const LogManager_service_1 = require("./LogManager.service");
 let TagManagerService = TagManagerService_1 = class TagManagerService {
     gateway;
     driver;
     repository;
+    logManager;
     logger = new common_1.Logger(TagManagerService_1.name);
     devices = new Map();
     maintenanceWorkflows = new Map();
-    constructor(gateway, driver, repository) {
+    constructor(gateway, driver, repository, logManager) {
         this.gateway = gateway;
         this.driver = driver;
         this.repository = repository;
+        this.logManager = logManager;
     }
     async requestMaintenance(deviceId) {
         this.maintenanceWorkflows.set(deviceId, { prodApproved: false, superApproved: false });
         this.broadcastWorkflowState(deviceId);
         this.logger.log(`🛠️ Solicitud de mantenimiento para: ${deviceId}`);
+        await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: 'Solicitud de mantenimiento iniciada' });
     }
     async approveMaintenance(deviceId, role) {
         const wf = this.maintenanceWorkflows.get(deviceId);
@@ -44,10 +48,12 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
         if (role === 'SUPER')
             wf.superApproved = true;
         this.logger.log(`✍️ Aprobación ${role} para ${deviceId}`);
+        await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: `Aprobación concedida por ${role}` });
         if (wf.prodApproved && wf.superApproved) {
             await this.writeDeviceCommand(deviceId, 'CONF_MODE_SELECTED', 3);
             this.maintenanceWorkflows.delete(deviceId);
             this.logger.log(`✅ ACCESO CONCEDIDO: ${deviceId} en Mantenimiento`);
+            await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: 'ACCESO CONCEDIDO - Modo MANTO activo' });
         }
         this.broadcastWorkflowState(deviceId);
     }
@@ -55,6 +61,7 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
         this.maintenanceWorkflows.delete(deviceId);
         this.broadcastWorkflowState(deviceId);
         this.logger.log(`❌ Solicitud cancelada para: ${deviceId}`);
+        await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: 'Solicitud cancelada' });
     }
     broadcastWorkflowState(deviceId) {
         const wf = this.maintenanceWorkflows.get(deviceId);
@@ -125,8 +132,15 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
         if (!device)
             throw new Error('Dispositivo no encontrado');
         const tag = device.getTags().find(t => t.id.endsWith(signalKey));
-        if (tag)
+        if (tag) {
             await this.driver.writeTag(tag, value);
+            await this.logManager.logEvent({
+                type: 'COMMAND',
+                deviceId,
+                message: `Comando enviado: ${signalKey}`,
+                details: { value }
+            });
+        }
     }
     getAllDevices() {
         return Array.from(this.devices.values()).map(d => ({
@@ -139,6 +153,7 @@ exports.TagManagerService = TagManagerService;
 exports.TagManagerService = TagManagerService = TagManagerService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(1, (0, common_1.Inject)('PLC_DRIVER')),
-    __metadata("design:paramtypes", [Tag_gateway_1.TagGateway, Object, JsonTagRepository_1.JsonTagRepository])
+    __metadata("design:paramtypes", [Tag_gateway_1.TagGateway, Object, JsonTagRepository_1.JsonTagRepository,
+        LogManager_service_1.LogManagerService])
 ], TagManagerService);
 //# sourceMappingURL=TagManager.service.js.map

@@ -1,0 +1,94 @@
+[
+  {
+    "type": "MAINTENANCE",
+    "deviceId": "MOTOR_TQ_106",
+    "message": "Solicitud de mantenimiento iniciada",
+    "id": "wwfi8x3af",
+    "timestamp": "2026-03-28T05:16:30.955Z"
+  },
+  {
+    "type": "MAINTENANCE",
+    "deviceId": "MOTOR_TQ_106",
+    "message": "Solicitud de mantenimiento iniciada",
+    "id": "wzywecmu2",
+    "timestamp": "2026-03-28T05:16:26.480Z"
+  },
+  {
+    "type": "COMMAND",
+    "deviceId": "MOTOR_TQ_106",
+    "message": "Comando enviado: CMD_FINAL_STOP",
+    "details": {
+      "value": false
+    },
+    "id": "ptqqvo7vn",
+    "timestamp": "2026-03-28T05:16:04.351Z"
+  },
+  {
+    "type": "COMMAND",
+    "deviceId": "MOTOR_TQ_106",
+    "message": "Comando enviado: CMD_FINAL_STOP",
+    "details": {
+      "value": true
+    },
+    "id": "m56g3kzyt",
+    "timestamp": "2026-03-28T05:16:04.345Z"
+  },
+  {
+    "type": "COMMAND",
+    "deviceId": "MOTOR_TQ_106",
+    "message": "Comando enviado: CMD_FINAL_STOP",
+    "details": {
+      "value": false
+    },
+    "id": "2i7qfnu91",
+    "timestamp": "2026-03-28T05:15:48.700Z"
+  },
+  {
+    "type": "COMMAND",
+    "deviceId": "MOTOR_TQ_106",
+    "message": "Comando enviado: CMD_FINAL_START",
+    "details": {
+      "value": false
+    },
+    "id": "6anu5lj4n",
+    "timestamp": "2026-03-28T05:15:47.679Z"
+  },
+  {
+    "type": "COMMAND",
+    "deviceId": "MOTOR_TQ_106",
+    "message": "Comando enviado: CMD_FINAL_START",
+    "details": {
+      "value": true
+    },
+    "id": "6n36tkbsh",
+    "timestamp": "2026-03-28T05:15:47.674Z"
+  },
+  {
+    "type": "SYSTEM",
+    "message": "Se cambio el ventilador al motor",
+    "user": "Técnico Mantenimiento",
+    "id": "7bksiw9dr",
+    "timestamp": "2026-03-28T05:15:29.342Z"
+  },
+  {
+    "type": "SYSTEM",
+    "message": "Test de bitacora completado",
+    "user": "Técnico Mantenimiento",
+    "id": "4n71izchi",
+    "timestamp": "2026-03-28T05:03:06.417Z"
+  },
+  {
+    "type": "SYSTEM",
+    "message": "Test de bit",
+    "user": "Técnico Mantenimiento",
+    "id": "9k3jvzd92",
+    "timestamp": "2026-03-28T05:02:57.437Z"
+  },
+  {
+    "type": "MAINTENANCE",
+    "deviceId": "MOTOR_TQ_106",
+    "message": "Solicitud de mantenimiento iniciada",
+    "id": "oqj53tec7",
+    "timestamp": "2026-03-28T05:02:35.942Z"
+  }
+]

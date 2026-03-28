@@ -5,6 +5,7 @@ import { Device } from '../domain/entities/Device';
 import { TagGateway } from '../infrastructure/gateways/Tag.gateway';
 import type { IPLCDriver } from '../domain/repositories/IPLCDriver';
 import { JsonTagRepository, DeviceConfig } from '../infrastructure/persistence/JsonTagRepository';
+import { LogManagerService } from './LogManager.service';
 
 @Injectable()
 export class TagManagerService implements OnModuleInit {
@@ -17,7 +18,8 @@ export class TagManagerService implements OnModuleInit {
   constructor(
     private readonly gateway: TagGateway,
     @Inject('PLC_DRIVER') private readonly driver: IPLCDriver,
-    private readonly repository: JsonTagRepository
+    private readonly repository: JsonTagRepository,
+    private readonly logManager: LogManagerService
   ) {}
 
   // ... (onModuleInit, etc) ...
@@ -26,6 +28,7 @@ export class TagManagerService implements OnModuleInit {
     this.maintenanceWorkflows.set(deviceId, { prodApproved: false, superApproved: false });
     this.broadcastWorkflowState(deviceId);
     this.logger.log(`🛠️ Solicitud de mantenimiento para: ${deviceId}`);
+    await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: 'Solicitud de mantenimiento iniciada' });
   }
 
   async approveMaintenance(deviceId: string, role: 'PROD' | 'SUPER') {
@@ -36,12 +39,14 @@ export class TagManagerService implements OnModuleInit {
     if (role === 'SUPER') wf.superApproved = true;
 
     this.logger.log(`✍️ Aprobación ${role} para ${deviceId}`);
+    await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: `Aprobación concedida por ${role}` });
 
     // Solo si AMBOS aprueban, pasamos el PLC a mantenimiento
     if (wf.prodApproved && wf.superApproved) {
       await this.writeDeviceCommand(deviceId, 'CONF_MODE_SELECTED', 3);
       this.maintenanceWorkflows.delete(deviceId);
       this.logger.log(`✅ ACCESO CONCEDIDO: ${deviceId} en Mantenimiento`);
+      await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: 'ACCESO CONCEDIDO - Modo MANTO activo' });
     }
 
     this.broadcastWorkflowState(deviceId);
@@ -51,6 +56,7 @@ export class TagManagerService implements OnModuleInit {
     this.maintenanceWorkflows.delete(deviceId);
     this.broadcastWorkflowState(deviceId);
     this.logger.log(`❌ Solicitud cancelada para: ${deviceId}`);
+    await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: 'Solicitud cancelada' });
   }
 
   private broadcastWorkflowState(deviceId: string) {
@@ -133,7 +139,15 @@ export class TagManagerService implements OnModuleInit {
     const device = this.devices.get(deviceId);
     if (!device) throw new Error('Dispositivo no encontrado');
     const tag = device.getTags().find(t => t.id.endsWith(signalKey));
-    if (tag) await this.driver.writeTag(tag, value);
+    if (tag) {
+      await this.driver.writeTag(tag, value);
+      await this.logManager.logEvent({
+        type: 'COMMAND',
+        deviceId,
+        message: `Comando enviado: ${signalKey}`,
+        details: { value }
+      });
+    }
   }
 
   getAllDevices() {
