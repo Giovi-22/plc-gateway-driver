@@ -1,10 +1,22 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { TagManagerService } from './application/TagManager.service';
+import { TagController } from './infrastructure/Tag.controller';
+import { TagGateway } from './infrastructure/gateways/Tag.gateway';
+import { PLCDriverFactory } from './infrastructure/drivers/PLCDriver.factory';
+import { JsonTagRepository } from './infrastructure/persistence/JsonTagRepository';
 
 @Module({
   imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [TagController],
+  providers: [
+    TagManagerService, 
+    TagGateway,
+    PLCDriverFactory,
+    JsonTagRepository, // <-- NUEVO
+  ],
 })
 export class AppModule {}
+
+
+
+

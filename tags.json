@@ -1,0 +1,26 @@
+[
+  {
+    "id": "MOT-01-RUN",
+    "address": "DB10.DBX0.0",
+    "value": false,
+    "type": "BOOL"
+  },
+  {
+    "id": "MOT-01-RPM",
+    "address": "DB10.DBD4",
+    "value": 0,
+    "type": "REAL"
+  },
+  {
+    "id": "PT-101-BAR",
+    "address": "DB10.DBD10",
+    "value": 0,
+    "type": "REAL"
+  },
+  {
+    "id": "MOT-02-RUN",
+    "address": "DB10.DBX2.0",
+    "value": 0,
+    "type": "BOOL"
+  }
+]
