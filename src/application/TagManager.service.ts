@@ -81,9 +81,24 @@ export class TagManagerService implements OnModuleInit {
       this.logger.log(`🏗️  ${this.devices.size} Dispositivos cargados.`);
       
       await this.driver.connect();
+
+      // 📦 Registrar de golpe TODAS las etiquetas en nodes7
+      this.registerAllTagsInDriver();
+      
       this.startPolling();
     } catch (err) {
       this.logger.error(`Error inicialización: ${err.message}`);
+    }
+  }
+
+  private registerAllTagsInDriver() {
+    const allTags: any[] = [];
+    for (const device of this.devices.values()) {
+      allTags.push(...device.getTags());
+    }
+    if (allTags.length > 0) {
+      this.driver.registerTags(allTags);
+      this.logger.log(`📥 ${allTags.length} tags registrados en el driver PLC.`);
     }
   }
 
@@ -97,6 +112,11 @@ export class TagManagerService implements OnModuleInit {
 
   async addDevice(conf: DeviceConfig) {
     this.instantiateDevice(conf);
+    // Registrar los nuevos tags sin reiniciar el servidor
+    const newDevice = this.devices.get(conf.id);
+    if (newDevice) {
+      this.driver.registerTags(newDevice.getTags());
+    }
     const configs = await this.repository.getAll();
     configs.push(conf);
     await this.repository.save(configs);
@@ -112,16 +132,17 @@ export class TagManagerService implements OnModuleInit {
   }
 
   private async startPolling() {
-    this.logger.log('⏱️ Ciclo de polling iniciado (500ms)');
+    this.logger.log('⏱️ Ciclo de polling iniciado (500ms) - MODO BATCH');
     setInterval(async () => {
-      for (const device of this.devices.values()) {
-        try {
+      try {
+        // 🚀 1 sola llamada de red por ciclo para TODOS los dispositivos
+        const allValues = await this.driver.readAllTags();
+
+        for (const device of this.devices.values()) {
+          // Distribuir los valores del lote a cada tag del dispositivo
           for (const tag of device.getTags()) {
-            try {
-              const val = await this.driver.readTag(tag);
-              tag.updateValue(val);
-            } catch (err) {
-              this.logger.error(`❌ Error leyendo tag ${tag.id} (${tag.address}): ${err.message || err}`);
+            if (allValues[tag.id] !== undefined) {
+              tag.updateValue(allValues[tag.id]);
             }
           }
           
@@ -129,7 +150,6 @@ export class TagManagerService implements OnModuleInit {
             id: device.id,
             state: this.mapDeviceToState(device)
           });
-          // ...
 
           // 📡 EVALUACIÓN DE ACKs
           const ackIdTag = device.getTags().find(t => t.id.endsWith('ACK_ID'));
@@ -140,18 +160,17 @@ export class TagManagerService implements OnModuleInit {
             if (pendingId && ackIdTag.value === pendingId) {
               const res = ackResTag.value;
               const resTxt = res === 1 ? 'OK' : res === 2 ? 'RECHAZADA' : res === 3 ? 'INVÁLIDA' : 'DESCONOCIDA';
-              
               await this.logManager.logEvent({
                 type: 'COMMAND',
                 deviceId: device.id,
                 message: `Confirmación PLC [ID: ${pendingId}]: Operación ${resTxt}`
               });
-              
-              this.pendingAcks.delete(device.id); // Limpiar para no repetir
+              this.pendingAcks.delete(device.id);
             }
           }
-          
-        } catch (error) {}
+        }
+      } catch (error) {
+        this.logger.error(`Error en ciclo de polling: ${error.message || error}`);
       }
     }, 500);
   }
