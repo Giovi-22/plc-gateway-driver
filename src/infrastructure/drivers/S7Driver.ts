@@ -120,33 +120,40 @@ export class S7Driver implements IPLCDriver {
   }
 
   /**
-   * Transforma direcciones estándar (DB8.DBD0) al formato de nodes7 (DB8,REAL0)
+   * Transforma direcciones estándar Siemens al formato de nodes7.
+   * Ejemplos:
+   *   DB2.DBX0.0  (BOOL) -> DB2,X0.0
+   *   DB5.DBW2    (INT)  -> DB5,INT2
+   *   DB5.DBD4    (REAL) -> DB5,REAL4
+   *   DB5.DBW0    (WORD) -> DB5,WORD0
    */
   private transformAddress(address: string, type: string): string {
-    // 1. Separar DB del resto (e.g., DB8.DBD0 -> [DB8, DBD0])
-    const parts = address.split('.');
-    if (parts.length < 2) return address;
+    // Separar el número de DB del resto (primer punto solamente)
+    // "DB2.DBX0.0" -> db = "DB2", rest = "DBX0.0"
+    const firstDot = address.indexOf('.');
+    if (firstDot === -1) return address;
 
-    const db = parts[0]; // DB8
-    const offsetPart = parts[1]; // DBD0, DBW2, DBX0, etc.
+    const db = address.substring(0, firstDot);        // "DB2"
+    const offsetPart = address.substring(firstDot + 1); // "DBX0.0" o "DBD4" o "DBW2"
 
-    // 2. Extraer el offset numérico (e.g., DBD4 -> 4, DBX0.0 -> 0.0)
-    const match = offsetPart.match(/\d+(\.\d+)?/);
-    const offset = match ? match[0] : offsetPart;
+    // Extraer el offset numérico completo incluyendo sub-bit (ej: "0.0" de "DBX0.0", "4" de "DBD4")
+    const match = offsetPart.match(/(\d+(\.\d+)?)/);
+    const offset = match ? match[0] : '0';
 
-    // 3. Formatear según tipo para nodes7
-    // BOOL: DB8,X0.0
-    // REAL: DB8,REAL0
-    // INT:  DB8,INT0
     switch (type) {
       case 'BOOL':
-        return `${db},X${offset}`;
-      case 'REAL':
-        return `${db},REAL${offset}`;
+        return `${db},X${offset}`;      // DB2,X0.0
       case 'INT':
-        return `${db},INT${offset}`;
+        return `${db},INT${offset}`;    // DB5,INT2
+      case 'REAL':
+        return `${db},REAL${offset}`;   // DB5,REAL4
+      case 'WORD':
+        return `${db},WORD${offset}`;   // DB5,WORD0
+      case 'DWORD':
+        return `${db},DWORD${offset}`;  // DB5,DWORD0
       default:
         return `${db},${offset}`;
     }
   }
 }
+
