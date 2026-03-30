@@ -4,9 +4,10 @@ import * as path from 'path';
 
 export interface DeviceConfig {
   id: string;
-  type: 'MOTOR' | 'VALVE';
+  type: 'MOTOR' | 'VALVE' | 'GENERIC';
   db: number;
   offset: number;
+  dataType?: 'BOOL' | 'INT' | 'REAL' | 'TIME'; // Opcional, solo para GENERIC.
 }
 
 @Injectable()
