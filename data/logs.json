@@ -1,5 +1,49 @@
 [
   {
+    "type": "COMMAND",
+    "deviceId": "TEST_REAL_PLC",
+    "message": "Secuencia SCADA [ID: 4]: Enviando Código 1 (CMD_FINAL_START)",
+    "details": {
+      "cmdCode": 1,
+      "currentId": 4
+    },
+    "id": "wkzx5gti5",
+    "timestamp": "2026-03-30T22:38:59.528Z"
+  },
+  {
+    "type": "COMMAND",
+    "deviceId": "TEST_REAL_PLC",
+    "message": "Secuencia SCADA [ID: 3]: Enviando Código 3 (CMD_FINAL_RESET)",
+    "details": {
+      "cmdCode": 3,
+      "currentId": 3
+    },
+    "id": "r6b8bchc9",
+    "timestamp": "2026-03-30T22:38:57.061Z"
+  },
+  {
+    "type": "COMMAND",
+    "deviceId": "TEST_REAL_PLC",
+    "message": "Secuencia SCADA [ID: 2]: Enviando Código 2 (CMD_FINAL_STOP)",
+    "details": {
+      "cmdCode": 2,
+      "currentId": 2
+    },
+    "id": "lvhwepn9p",
+    "timestamp": "2026-03-30T22:38:45.268Z"
+  },
+  {
+    "type": "COMMAND",
+    "deviceId": "TEST_REAL_PLC",
+    "message": "Secuencia SCADA [ID: 1]: Enviando Código 1 (CMD_FINAL_START)",
+    "details": {
+      "cmdCode": 1,
+      "currentId": 1
+    },
+    "id": "625wgobce",
+    "timestamp": "2026-03-30T22:38:01.692Z"
+  },
+  {
     "type": "MAINTENANCE",
     "deviceId": "MOTOR_TQ_106",
     "message": "Solicitud de mantenimiento iniciada",

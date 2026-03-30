@@ -9,13 +9,13 @@ class S7Driver {
     connected = false;
     config = {
         port: 102,
-        host: '192.168.0.1',
-        rack: 0,
-        slot: 2,
+        host: process.env.PLC_HOST || '192.168.0.1',
+        rack: Number(process.env.PLC_RACK) || 0,
+        slot: Number(process.env.PLC_SLOT) || 2,
     };
     async connect() {
         return new Promise((resolve, reject) => {
-            this.logger.log(`Conectando al PLC Siemens en ${this.config.host}...`);
+            this.logger.log(`Conectando al PLC Siemens en ${this.config.host} (Rack ${this.config.rack}, Slot ${this.config.slot})...`);
             this.conn.initiateConnection(this.config, (err) => {
                 if (err) {
                     this.logger.error(`❌ Error de conexión: ${err}`);
@@ -40,19 +40,27 @@ class S7Driver {
             throw new Error('🔌 Driver no conectado al PLC.');
         return new Promise((resolve, reject) => {
             const s7Address = this.transformAddress(tag.address, tag.type);
-            this.conn.readItems([s7Address], (err, values) => {
-                if (err)
+            this.conn.addItems(s7Address);
+            this.conn.readAllItems((err, values) => {
+                if (err) {
+                    this.logger.error(`Error leyendo ${tag.id} (${s7Address}): ${err}`);
                     return reject(err);
+                }
+                this.conn.removeItems(s7Address);
                 resolve(values[s7Address]);
             });
         });
     }
     async writeTag(tag, value) {
+        if (!this.connected)
+            throw new Error('🔌 Driver no conectado al PLC.');
         return new Promise((resolve, reject) => {
             const s7Address = this.transformAddress(tag.address, tag.type);
             this.conn.writeItems([s7Address], [value], (err) => {
-                if (err)
+                if (err) {
+                    this.logger.error(`Error escribiendo ${tag.id} (${s7Address}): ${err}`);
                     return reject(err);
+                }
                 resolve();
             });
         });
@@ -61,14 +69,23 @@ class S7Driver {
         return this.connected;
     }
     transformAddress(address, type) {
-        let formatted = address.replace(/\./g, ',');
-        if (type === 'REAL')
-            return formatted.replace('DB', 'REAL');
-        if (type === 'BOOL')
-            return formatted.replace('DBX', 'X');
-        if (type === 'INT')
-            return formatted.replace('DBW', 'INT');
-        return formatted;
+        const parts = address.split('.');
+        if (parts.length < 2)
+            return address;
+        const db = parts[0];
+        const offsetPart = parts[1];
+        const match = offsetPart.match(/\d+(\.\d+)?/);
+        const offset = match ? match[0] : offsetPart;
+        switch (type) {
+            case 'BOOL':
+                return `${db},X${offset}`;
+            case 'REAL':
+                return `${db},REAL${offset}`;
+            case 'INT':
+                return `${db},INT${offset}`;
+            default:
+                return `${db},${offset}`;
+        }
     }
 }
 exports.S7Driver = S7Driver;

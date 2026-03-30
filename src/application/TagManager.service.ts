@@ -112,18 +112,24 @@ export class TagManagerService implements OnModuleInit {
   }
 
   private async startPolling() {
+    this.logger.log('⏱️ Ciclo de polling iniciado (500ms)');
     setInterval(async () => {
       for (const device of this.devices.values()) {
         try {
           for (const tag of device.getTags()) {
-            const val = await this.driver.readTag(tag);
-            tag.updateValue(val);
+            try {
+              const val = await this.driver.readTag(tag);
+              tag.updateValue(val);
+            } catch (err) {
+              this.logger.error(`❌ Error leyendo tag ${tag.id} (${tag.address}): ${err.message || err}`);
+            }
           }
           
           this.gateway.server?.emit('deviceUpdate', {
             id: device.id,
             state: this.mapDeviceToState(device)
           });
+          // ...
 
           // 📡 EVALUACIÓN DE ACKs
           const ackIdTag = device.getTags().find(t => t.id.endsWith('ACK_ID'));
@@ -160,8 +166,12 @@ export class TagManagerService implements OnModuleInit {
   }
 
   async writeDeviceCommand(deviceId: string, signalKey: string, value: any) {
+    this.logger.debug(`📩 COMANDO RECIBIDO: Disp=${deviceId}, Señal=${signalKey}, Valor=${value}`);
     const device = this.devices.get(deviceId);
-    if (!device) throw new Error('Dispositivo no encontrado');
+    if (!device) {
+      this.logger.error(`❌ Dispositivo no encontrado: ${deviceId}`);
+      throw new Error('Dispositivo no encontrado');
+    }
 
     // 🧩 PATRÓN DE INTERFAZ POR TRABAJOS (JOB-BASED INTERFACE)
     const commandMap: { [key: string]: number } = {
@@ -172,8 +182,12 @@ export class TagManagerService implements OnModuleInit {
 
     if (commandMap[signalKey] !== undefined) {
       // Ignorar eventos 'mouseup' (value = false) antiguos del SCADA Frontend
-      if (value === false) return; 
+      if (value === false) {
+        this.logger.debug(`⏭️ Ignorando mouseup para ${signalKey}`);
+        return;
+      }
 
+      this.logger.log(`🚀 Ejecutando SECUENCIA DE COMANDO: ${signalKey} (Code=${commandMap[signalKey]}) para ${deviceId}`);
       const cmdCode = commandMap[signalKey];
       
       // Auto-incremento con Rollover (Límite 9999 -> Reseteo a 1)
@@ -186,6 +200,7 @@ export class TagManagerService implements OnModuleInit {
       const tagCode = device.getTags().find(t => t.id.endsWith('CMD_CODE'));
 
       if (tagId && tagCode) {
+        this.logger.debug(`✍️ Escribiendo Código=${cmdCode} e ID=${currentId} en el PLC...`);
         // Escribe primero el código y luego el disparador (ID)
         await this.driver.writeTag(tagCode, cmdCode);
         await this.driver.writeTag(tagId, currentId);
@@ -198,11 +213,14 @@ export class TagManagerService implements OnModuleInit {
         });
 
         this.pendingAcks.set(deviceId, currentId); // ⏳ Queda a la espera del Polling
+      } else {
+        this.logger.warn(`⚠️ No se encontraron los tags de comando (CMD_ID/CMD_CODE) para ${deviceId}`);
       }
       return;
     }
 
     // Flujo normal para otras señales (ej. CONF_MODE_SELECTED)
+    this.logger.log(`📝 Escribiendo señal directa: ${signalKey} = ${value}`);
     const tag = device.getTags().find(t => t.id.endsWith(signalKey));
     if (tag) {
       await this.driver.writeTag(tag, value);
@@ -212,6 +230,8 @@ export class TagManagerService implements OnModuleInit {
         message: `Comando enviado: ${signalKey}`,
         details: { value }
       });
+    } else {
+      this.logger.warn(`⚠️ Señal ${signalKey} no definida para dispositivo ${deviceId}`);
     }
   }
 

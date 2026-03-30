@@ -7,9 +7,12 @@ import { TagGateway } from './infrastructure/gateways/Tag.gateway';
 import { PLCDriverFactory } from './infrastructure/drivers/PLCDriver.factory';
 import { JsonTagRepository } from './infrastructure/persistence/JsonTagRepository';
 import { JsonLogRepository } from './infrastructure/persistence/JsonLogRepository';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+  ],
   controllers: [TagController, LogController],
   providers: [
     TagManagerService, 

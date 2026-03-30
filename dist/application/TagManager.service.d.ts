@@ -10,6 +10,8 @@ export declare class TagManagerService implements OnModuleInit {
     private readonly logManager;
     private readonly logger;
     private readonly devices;
+    private readonly commandCounters;
+    private readonly pendingAcks;
     private maintenanceWorkflows;
     constructor(gateway: TagGateway, driver: IPLCDriver, repository: JsonTagRepository, logManager: LogManagerService);
     requestMaintenance(deviceId: string): Promise<void>;

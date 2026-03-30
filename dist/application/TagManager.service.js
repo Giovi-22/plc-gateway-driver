@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TagManagerService = void 0;
 const common_1 = require("@nestjs/common");
 const Motor_1 = require("../domain/entities/Motor");
+const CustomTag_1 = require("../domain/entities/CustomTag");
 const Tag_gateway_1 = require("../infrastructure/gateways/Tag.gateway");
 const JsonTagRepository_1 = require("../infrastructure/persistence/JsonTagRepository");
 const LogManager_service_1 = require("./LogManager.service");
@@ -26,6 +27,8 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
     logManager;
     logger = new common_1.Logger(TagManagerService_1.name);
     devices = new Map();
+    commandCounters = new Map();
+    pendingAcks = new Map();
     maintenanceWorkflows = new Map();
     constructor(gateway, driver, repository, logManager) {
         this.gateway = gateway;
@@ -50,7 +53,7 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
         this.logger.log(`✍️ Aprobación ${role} para ${deviceId}`);
         await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: `Aprobación concedida por ${role}` });
         if (wf.prodApproved && wf.superApproved) {
-            await this.writeDeviceCommand(deviceId, 'CONF_MODE_SELECTED', 3);
+            await this.writeDeviceCommand(deviceId, 'CONF_MODE_SELECTED', 2);
             this.maintenanceWorkflows.delete(deviceId);
             this.logger.log(`✅ ACCESO CONCEDIDO: ${deviceId} en Mantenimiento`);
             await this.logManager.logEvent({ type: 'MAINTENANCE', deviceId, message: 'ACCESO CONCEDIDO - Modo MANTO activo' });
@@ -87,6 +90,9 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
         if (conf.type === 'MOTOR') {
             this.devices.set(conf.id, new Motor_1.Motor(conf.id, conf.db, conf.offset));
         }
+        else if (conf.type === 'GENERIC') {
+            this.devices.set(conf.id, new CustomTag_1.CustomTag(conf.id, conf.db, conf.offset, conf.dataType || 'REAL'));
+        }
     }
     async addDevice(conf) {
         this.instantiateDevice(conf);
@@ -103,17 +109,38 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
         this.logger.log(`🗑️ Dispositivo eliminado: ${id}`);
     }
     async startPolling() {
+        this.logger.log('⏱️ Ciclo de polling iniciado (500ms)');
         setInterval(async () => {
             for (const device of this.devices.values()) {
                 try {
                     for (const tag of device.getTags()) {
-                        const val = await this.driver.readTag(tag);
-                        tag.updateValue(val);
+                        try {
+                            const val = await this.driver.readTag(tag);
+                            tag.updateValue(val);
+                        }
+                        catch (err) {
+                            this.logger.error(`❌ Error leyendo tag ${tag.id} (${tag.address}): ${err.message || err}`);
+                        }
                     }
                     this.gateway.server?.emit('deviceUpdate', {
                         id: device.id,
                         state: this.mapDeviceToState(device)
                     });
+                    const ackIdTag = device.getTags().find(t => t.id.endsWith('ACK_ID'));
+                    const ackResTag = device.getTags().find(t => t.id.endsWith('ACK_RESULT'));
+                    if (ackIdTag && ackResTag) {
+                        const pendingId = this.pendingAcks.get(device.id);
+                        if (pendingId && ackIdTag.value === pendingId) {
+                            const res = ackResTag.value;
+                            const resTxt = res === 1 ? 'OK' : res === 2 ? 'RECHAZADA' : res === 3 ? 'INVÁLIDA' : 'DESCONOCIDA';
+                            await this.logManager.logEvent({
+                                type: 'COMMAND',
+                                deviceId: device.id,
+                                message: `Confirmación PLC [ID: ${pendingId}]: Operación ${resTxt}`
+                            });
+                            this.pendingAcks.delete(device.id);
+                        }
+                    }
                 }
                 catch (error) { }
             }
@@ -128,9 +155,49 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
         return state;
     }
     async writeDeviceCommand(deviceId, signalKey, value) {
+        this.logger.debug(`📩 COMANDO RECIBIDO: Disp=${deviceId}, Señal=${signalKey}, Valor=${value}`);
         const device = this.devices.get(deviceId);
-        if (!device)
+        if (!device) {
+            this.logger.error(`❌ Dispositivo no encontrado: ${deviceId}`);
             throw new Error('Dispositivo no encontrado');
+        }
+        const commandMap = {
+            'CMD_FINAL_START': 1,
+            'CMD_FINAL_STOP': 2,
+            'CMD_FINAL_RESET': 3
+        };
+        if (commandMap[signalKey] !== undefined) {
+            if (value === false) {
+                this.logger.debug(`⏭️ Ignorando mouseup para ${signalKey}`);
+                return;
+            }
+            this.logger.log(`🚀 Ejecutando SECUENCIA DE COMANDO: ${signalKey} (Code=${commandMap[signalKey]}) para ${deviceId}`);
+            const cmdCode = commandMap[signalKey];
+            let currentId = this.commandCounters.get(deviceId) || 0;
+            currentId++;
+            if (currentId >= 9999)
+                currentId = 1;
+            this.commandCounters.set(deviceId, currentId);
+            const tagId = device.getTags().find(t => t.id.endsWith('CMD_ID'));
+            const tagCode = device.getTags().find(t => t.id.endsWith('CMD_CODE'));
+            if (tagId && tagCode) {
+                this.logger.debug(`✍️ Escribiendo Código=${cmdCode} e ID=${currentId} en el PLC...`);
+                await this.driver.writeTag(tagCode, cmdCode);
+                await this.driver.writeTag(tagId, currentId);
+                await this.logManager.logEvent({
+                    type: 'COMMAND',
+                    deviceId,
+                    message: `Secuencia SCADA [ID: ${currentId}]: Enviando Código ${cmdCode} (${signalKey})`,
+                    details: { cmdCode, currentId }
+                });
+                this.pendingAcks.set(deviceId, currentId);
+            }
+            else {
+                this.logger.warn(`⚠️ No se encontraron los tags de comando (CMD_ID/CMD_CODE) para ${deviceId}`);
+            }
+            return;
+        }
+        this.logger.log(`📝 Escribiendo señal directa: ${signalKey} = ${value}`);
         const tag = device.getTags().find(t => t.id.endsWith(signalKey));
         if (tag) {
             await this.driver.writeTag(tag, value);
@@ -140,6 +207,9 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
                 message: `Comando enviado: ${signalKey}`,
                 details: { value }
             });
+        }
+        else {
+            this.logger.warn(`⚠️ Señal ${signalKey} no definida para dispositivo ${deviceId}`);
         }
     }
     getAllDevices() {

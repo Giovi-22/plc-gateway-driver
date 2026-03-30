@@ -16,12 +16,15 @@ const Tag_gateway_1 = require("./infrastructure/gateways/Tag.gateway");
 const PLCDriver_factory_1 = require("./infrastructure/drivers/PLCDriver.factory");
 const JsonTagRepository_1 = require("./infrastructure/persistence/JsonTagRepository");
 const JsonLogRepository_1 = require("./infrastructure/persistence/JsonLogRepository");
+const config_1 = require("@nestjs/config");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
+        imports: [
+            config_1.ConfigModule.forRoot({ isGlobal: true }),
+        ],
         controllers: [Tag_controller_1.TagController, Log_controller_1.LogController],
         providers: [
             TagManager_service_1.TagManagerService,

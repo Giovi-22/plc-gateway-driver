@@ -1,9 +1,10 @@
 import { OnModuleInit } from '@nestjs/common';
 export interface DeviceConfig {
     id: string;
-    type: 'MOTOR' | 'VALVE';
+    type: 'MOTOR' | 'VALVE' | 'GENERIC';
     db: number;
     offset: number;
+    dataType?: 'BOOL' | 'INT' | 'REAL' | 'TIME';
 }
 export declare class JsonTagRepository implements OnModuleInit {
     private readonly filePath;

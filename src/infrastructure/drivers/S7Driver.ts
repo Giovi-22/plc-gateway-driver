@@ -8,17 +8,17 @@ export class S7Driver implements IPLCDriver {
   private conn = new nodes7();
   private connected = false;
 
-  // Parámetros de conexión Siemens por defecto (Slot 2 para S7-300)
+  // Parámetros de conexión Siemens leídos de .env
   private config = {
     port: 102,
-    host: '192.168.0.1', // <--- CAMBIA ESTO POR LA IP DE TU PLC
-    rack: 0,
-    slot: 2, // S7-300 es Slot 2, S7-1200/1500 es Slot 1 o 0
+    host: process.env.PLC_HOST || '192.168.0.1',
+    rack: Number(process.env.PLC_RACK) || 0,
+    slot: Number(process.env.PLC_SLOT) || 2,
   };
 
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.logger.log(`Conectando al PLC Siemens en ${this.config.host}...`);
+      this.logger.log(`Conectando al PLC Siemens en ${this.config.host} (Rack ${this.config.rack}, Slot ${this.config.slot})...`);
       
       this.conn.initiateConnection(this.config, (err: any) => {
         if (err) {
@@ -46,21 +46,35 @@ export class S7Driver implements IPLCDriver {
 
     return new Promise((resolve, reject) => {
       // Traducir dirección para nodes7
-      // nodes7 usa formato: 'DB10,INT4' o 'DB10,X0.0'
       const s7Address = this.transformAddress(tag.address, tag.type);
 
-      this.conn.readItems([s7Address], (err: any, values: any) => {
-        if (err) return reject(err);
+      // nodes7 requiere añadir el item antes de leerlo todo
+      this.conn.addItems(s7Address);
+      
+      this.conn.readAllItems((err: any, values: any) => {
+        if (err) {
+          this.logger.error(`Error leyendo ${tag.id} (${s7Address}): ${err}`);
+          return reject(err);
+        }
+        
+        // Limpiamos el item después de leerlo si no queremos mantenerlo en el pool fijo
+        this.conn.removeItems(s7Address);
+        
         resolve(values[s7Address]);
       });
     });
   }
 
   async writeTag(tag: Tag, value: number | boolean): Promise<void> {
+    if (!this.connected) throw new Error('🔌 Driver no conectado al PLC.');
+
     return new Promise((resolve, reject) => {
       const s7Address = this.transformAddress(tag.address, tag.type);
       this.conn.writeItems([s7Address], [value], (err: any) => {
-        if (err) return reject(err);
+        if (err) {
+          this.logger.error(`Error escribiendo ${tag.id} (${s7Address}): ${err}`);
+          return reject(err);
+        }
         resolve();
       });
     });
@@ -70,16 +84,34 @@ export class S7Driver implements IPLCDriver {
     return this.connected;
   }
 
-  // Ayudante para convertir por ej: DB10.DBD4 -> DB10,REAL4
+  /**
+   * Transforma direcciones estándar (DB8.DBD0) al formato de nodes7 (DB8,REAL0)
+   */
   private transformAddress(address: string, type: string): string {
-    // Siemens estándar: DB10.DBX0.0 -> DB10,X0.0
-    // DB10.DBD4 -> DB10,REAL4 o DB10,DINT4
-    let formatted = address.replace(/\./g, ',');
-    
-    if (type === 'REAL') return formatted.replace('DB', 'REAL');
-    if (type === 'BOOL') return formatted.replace('DBX', 'X');
-    if (type === 'INT') return formatted.replace('DBW', 'INT');
-    
-    return formatted;
+    // 1. Separar DB del resto (e.g., DB8.DBD0 -> [DB8, DBD0])
+    const parts = address.split('.');
+    if (parts.length < 2) return address;
+
+    const db = parts[0]; // DB8
+    const offsetPart = parts[1]; // DBD0, DBW2, DBX0, etc.
+
+    // 2. Extraer el offset numérico (e.g., DBD4 -> 4, DBX0.0 -> 0.0)
+    const match = offsetPart.match(/\d+(\.\d+)?/);
+    const offset = match ? match[0] : offsetPart;
+
+    // 3. Formatear según tipo para nodes7
+    // BOOL: DB8,X0.0
+    // REAL: DB8,REAL0
+    // INT:  DB8,INT0
+    switch (type) {
+      case 'BOOL':
+        return `${db},X${offset}`;
+      case 'REAL':
+        return `${db},REAL${offset}`;
+      case 'INT':
+        return `${db},INT${offset}`;
+      default:
+        return `${db},${offset}`;
+    }
   }
 }

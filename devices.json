@@ -1,1 +1,4 @@
-[{"id":"MOTOR_TQ_106","type":"MOTOR","db":5,"offset":0}]
+[
+  { "id": "TEST_REAL_PLC", "name": "Motor_Prueba_DB8", "type": "MOTOR", "db": 8, "offset": 0 },
+  { "id": "TEST_REAL_INT", "name": "DB8_INT_TEST", "type": "GENERIC", "db": 8, "offset": 60, "dataType": "INT" }
+]
