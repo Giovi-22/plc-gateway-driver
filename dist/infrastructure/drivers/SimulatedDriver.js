@@ -5,6 +5,7 @@ const common_1 = require("@nestjs/common");
 class SimulatedDriver {
     logger = new common_1.Logger(SimulatedDriver.name);
     connected = false;
+    registeredTags = new Map();
     async connect() {
         this.logger.log('Conectando al PLC Simulado...');
         return new Promise((resolve) => {
@@ -18,6 +19,17 @@ class SimulatedDriver {
     async disconnect() {
         this.connected = false;
         this.logger.log('Desconectado del simulador.');
+    }
+    registerTags(tags) {
+        tags.forEach(tag => this.registeredTags.set(tag.id, tag));
+        this.logger.log(`📥 [Sim] Registradas ${tags.length} etiquetas.`);
+    }
+    async readAllTags() {
+        const result = {};
+        for (const tag of this.registeredTags.values()) {
+            result[tag.id] = await this.readTag(tag);
+        }
+        return result;
     }
     async readTag(tag) {
         if (!this.connected)

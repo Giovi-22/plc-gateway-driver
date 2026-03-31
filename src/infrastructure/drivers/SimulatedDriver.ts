@@ -6,6 +6,8 @@ export class SimulatedDriver implements IPLCDriver {
   private readonly logger = new Logger(SimulatedDriver.name);
   private connected = false;
 
+  private registeredTags = new Map<string, Tag>();
+
   async connect(): Promise<void> {
     this.logger.log('Conectando al PLC Simulado...');
     return new Promise((resolve) => {
@@ -20,6 +22,19 @@ export class SimulatedDriver implements IPLCDriver {
   async disconnect(): Promise<void> {
     this.connected = false;
     this.logger.log('Desconectado del simulador.');
+  }
+
+  registerTags(tags: Tag[]): void {
+    tags.forEach(tag => this.registeredTags.set(tag.id, tag));
+    this.logger.log(`📥 [Sim] Registradas ${tags.length} etiquetas.`);
+  }
+
+  async readAllTags(): Promise<Record<string, number | boolean>> {
+    const result: Record<string, number | boolean> = {};
+    for (const tag of this.registeredTags.values()) {
+      result[tag.id] = await this.readTag(tag);
+    }
+    return result;
   }
 
   async readTag(tag: Tag): Promise<number | boolean> {

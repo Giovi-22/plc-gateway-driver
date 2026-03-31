@@ -17,17 +17,18 @@ class Device {
     }
     generateTags() {
         this.template.forEach(signal => {
-            const address = this.calculateAddress(signal.offset);
+            const address = this.calculateAddress(signal.offset, signal.type);
             this.tags.push(new Tag_1.Tag(`${this.id}_${signal.key}`, address, signal.type === 'TIME' ? 'REAL' : signal.type));
         });
     }
-    calculateAddress(offset) {
+    calculateAddress(offset, type) {
         const [byte, bit] = offset.split('.');
         const finalByte = this.baseOffset + parseInt(byte);
         if (bit !== undefined) {
             return `DB${this.db}.DBX${finalByte}.${bit}`;
         }
-        return `DB${this.db}.DBW${finalByte}`;
+        const prefix = (type === 'REAL' || type === 'TIME') ? 'DBD' : 'DBW';
+        return `DB${this.db}.${prefix}${finalByte}`;
     }
     getTags() {
         return this.tags;

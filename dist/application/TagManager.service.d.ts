@@ -19,6 +19,7 @@ export declare class TagManagerService implements OnModuleInit {
     cancelMaintenance(deviceId: string): Promise<void>;
     private broadcastWorkflowState;
     onModuleInit(): Promise<void>;
+    private registerAllTagsInDriver;
     private instantiateDevice;
     addDevice(conf: DeviceConfig): Promise<void>;
     removeDevice(id: string): Promise<void>;

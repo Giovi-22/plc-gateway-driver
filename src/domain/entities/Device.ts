@@ -15,7 +15,7 @@ export class Device {
 
   private generateTags() {
     this.template.forEach(signal => {
-      const address = this.calculateAddress(signal.offset);
+      const address = this.calculateAddress(signal.offset, signal.type);
       this.tags.push(new Tag(
         `${this.id}_${signal.key}`, 
         address, 
@@ -24,7 +24,7 @@ export class Device {
     });
   }
 
-  private calculateAddress(offset: string): string {
+  private calculateAddress(offset: string, type: string): string {
     const [byte, bit] = offset.split('.');
     const finalByte = this.baseOffset + parseInt(byte);
     
@@ -32,7 +32,9 @@ export class Device {
       return `DB${this.db}.DBX${finalByte}.${bit}`;
     }
     
-    return `DB${this.db}.DBW${finalByte}`; 
+    // REAL y TIME (32 bits) usan DBD. INT (16 bits) usa DBW.
+    const prefix = (type === 'REAL' || type === 'TIME') ? 'DBD' : 'DBW';
+    return `DB${this.db}.${prefix}${finalByte}`; 
   }
 
   getTags(): Tag[] {

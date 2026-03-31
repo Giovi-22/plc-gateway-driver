@@ -80,10 +80,21 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
             configs.forEach(conf => this.instantiateDevice(conf));
             this.logger.log(`🏗️  ${this.devices.size} Dispositivos cargados.`);
             await this.driver.connect();
+            this.registerAllTagsInDriver();
             this.startPolling();
         }
         catch (err) {
             this.logger.error(`Error inicialización: ${err.message}`);
+        }
+    }
+    registerAllTagsInDriver() {
+        const allTags = [];
+        for (const device of this.devices.values()) {
+            allTags.push(...device.getTags());
+        }
+        if (allTags.length > 0) {
+            this.driver.registerTags(allTags);
+            this.logger.log(`📥 ${allTags.length} tags registrados en el driver PLC.`);
         }
     }
     instantiateDevice(conf) {
@@ -96,6 +107,10 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
     }
     async addDevice(conf) {
         this.instantiateDevice(conf);
+        const newDevice = this.devices.get(conf.id);
+        if (newDevice) {
+            this.driver.registerTags(newDevice.getTags());
+        }
         const configs = await this.repository.getAll();
         configs.push(conf);
         await this.repository.save(configs);
@@ -109,17 +124,14 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
         this.logger.log(`🗑️ Dispositivo eliminado: ${id}`);
     }
     async startPolling() {
-        this.logger.log('⏱️ Ciclo de polling iniciado (500ms)');
+        this.logger.log('⏱️ Ciclo de polling iniciado (500ms) - MODO BATCH');
         setInterval(async () => {
-            for (const device of this.devices.values()) {
-                try {
+            try {
+                const allValues = await this.driver.readAllTags();
+                for (const device of this.devices.values()) {
                     for (const tag of device.getTags()) {
-                        try {
-                            const val = await this.driver.readTag(tag);
-                            tag.updateValue(val);
-                        }
-                        catch (err) {
-                            this.logger.error(`❌ Error leyendo tag ${tag.id} (${tag.address}): ${err.message || err}`);
+                        if (allValues[tag.id] !== undefined) {
+                            tag.updateValue(allValues[tag.id]);
                         }
                     }
                     this.gateway.server?.emit('deviceUpdate', {
@@ -142,7 +154,9 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
                         }
                     }
                 }
-                catch (error) { }
+            }
+            catch (error) {
+                this.logger.error(`Error en ciclo de polling: ${error.message || error}`);
             }
         }, 500);
     }
