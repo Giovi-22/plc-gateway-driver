@@ -104,8 +104,15 @@ export class TagManagerService implements OnModuleInit {
 
   private instantiateDevice(conf: DeviceConfig) {
     if (conf.type === 'MOTOR') {
-      this.devices.set(conf.id, new Motor(conf.id, conf.db, conf.offset));
-    } else if (conf.type === 'GENERIC') {
+      // Usamos el DB1 para estado y el DB3 para comandos.
+      this.devices.set(conf.id, new Motor(
+        conf.id, 
+        conf.db, 
+        conf.offset, 
+        conf.commandDb, // Nuevo: DB3
+        conf.commandOffset // Nuevo: Offset indexado
+      ));
+    } else if (conf.type === 'GENERIC' || conf.type === 'SYSTEM') {
       this.devices.set(conf.id, new CustomTag(conf.id, conf.db, conf.offset, conf.dataType || 'REAL'));
     }
   }

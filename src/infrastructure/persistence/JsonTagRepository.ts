@@ -4,10 +4,12 @@ import * as path from 'path';
 
 export interface DeviceConfig {
   id: string;
-  type: 'MOTOR' | 'VALVE' | 'GENERIC';
+  type: 'MOTOR' | 'VALVE' | 'GENERIC' | 'SYSTEM';
   db: number;
   offset: number;
-  dataType?: 'BOOL' | 'INT' | 'REAL' | 'TIME'; // Opcional, solo para GENERIC.
+  commandDb?: number;     // DB de comandos (DB3)
+  commandOffset?: number; // Offset de comandos (indexado cada 6 bytes)
+  dataType?: 'BOOL' | 'INT' | 'REAL' | 'TIME' | 'WORD' | 'DWORD';
 }
 
 @Injectable()

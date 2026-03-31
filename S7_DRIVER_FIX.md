@@ -1,41 +1,31 @@
-# Informe de Corrección: Driver Siemens S7 (nodes7)
+# Informe de Corrección: Driver Siemens S7 (Multi-DB Architecture)
 
-## 1. Problema Identificado
-El método `transformAddress` en `S7Driver.ts` no manejaba correctamente las direcciones de bits (Siemens `DBX`). Al realizar un `split('.')`, las direcciones como `DB2.DBX0.0` se fragmentaban incorrectamente, resultando en `DB2,X0` en lugar del formato requerido por la librería `nodes7`: `DB2,X0.0`.
+## 1. Arquitectura de Datos
+Se ha implementado una separación clara entre lectura de estado y escritura de comandos en diferentes bloques de datos (DB):
+- **DB1 (DB_MOTORS):** Contiene el estado de los motores (`UDT_MOTOR`). Lectura cíclica.
+- **DB2 (DB_SISTEMA):** Señales globales de sistema (ej: Parada de Emergencia Global en `DBX0.0`).
+- **DB3 (DB_COMMANDS):** Destino de todas las escrituras de comandos SCADA (`UDT_REMOTE_CMD`). Los comandos están compactados secuencialmente cada 6 bytes.
 
-## 2. Cambios Realizados
+## 2. Cambios Técnicos Realizados
 
-### A. Refactorización de `S7Driver.ts`
-Se modificó la lógica de transformación de direcciones para soportar offsets con punto (bits) y nuevos tipos de datos:
-- **Lógica de Offset:** Ahora captura todo lo que sigue al primer dígito encontrado en la dirección (ej. `DBX0.0` -> `0.0`).
-- **Tipos Soportados:** `BOOL`, `INT`, `REAL`, `WORD`, `DWORD`.
-- **Formato Final:** Asegura el esquema `DB{n},{TIPO}{OFFSET}` compatible con `nodes7`.
+### A. Refactorización de Entidades
+- **`SignalTemplate`**: Se añadió el flag `isCommand` para dirigir señales específicas al DB3.
+- **`Device`**: Ahora soporta `db` (lectura) y `commandDb` (escritura) con sus respectivos offsets independientes.
+- **`Motor`**: Combina las señales de `UDT_MOTOR` y `UDT_REMOTE_CMD` en un único dispositivo lógico.
 
-### B. Configuración de Dispositivos (`devices.json`)
-Se añadió la **Parada de Emergencia** como un dispositivo genérico para validación en tiempo real:
+### B. Corrección de Direccionamiento en `S7Driver.ts`
+- Se arregló el método `transformAddress` para manejar bits correctamente (ej: `DB2.DBX0.0` -> `DB2,X0.0`).
+- Se eliminaron los sufijos `.0` de los tipos `INT` y `REAL`, evitando errores de "Zero length arrays" en `nodes7`.
+
+## 3. Configuración (`devices.json`)
+Ejemplo de configuración para sincronizar:
 ```json
 { 
-  "id": "EMERGENCY_STOP", 
-  "name": "Parada de Emergencia", 
-  "type": "GENERIC", 
-  "db": 2, 
-  "offset": 0, 
-  "dataType": "BOOL" 
+  "id": "TQ_106", 
+  "db": 1, "offset": 0,         // Lectura (Status)
+  "commandDb": 3, "commandOffset": 0 // Escritura (Comandos cada 6 bytes)
 }
 ```
 
-## 3. Verificación Exitosa
-Se ejecutó un script de prueba independiente (`test-plc.js`) con los siguientes resultados:
-- **Conexión:** Establecida con éxito a `10.80.90.115` (Rack 0, Slot 2).
-- **Lectura:** El tag `DB2,X0.0` retornó un valor de `true`.
-- **Estado:** La comunicación es estable y el direccionamiento es correcto.
-
-## 4. Pendiente (Git)
-Se intentó realizar un push a la rama `main` del repositorio `Giovi-22/plc-gateway-driver`. 
-- **Usuario configurado:** `mantenimiento_scl`.
-- **Estado:** El commit está listo localmente, pero falló el push debido a permisos 403. Se recomienda realizar el push manualmente desde la terminal para ingresar las credenciales correctas.
-```bash
-git add .
-git commit -m "fix: update S7 driver connection and address transformation logic"
-git push origin main
-```
+## 4. Verificación
+El sistema fue probado con éxito en el PLC físico `10.80.90.115`, confirmando que los estados se leen del DB1 y los comandos se ejecutan correctamente sobre el DB3.

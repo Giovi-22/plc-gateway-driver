@@ -1,11 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UDT_MOTOR = void 0;
+exports.UDT_MOTOR = exports.UDT_REMOTE_CMD = void 0;
+exports.UDT_REMOTE_CMD = [
+    { key: 'CMD_ID', offset: '0', type: 'INT', isCommand: true },
+    { key: 'CMD_CODE', offset: '2', type: 'INT', isCommand: true },
+    { key: 'CMD_LAST_ID', offset: '4', type: 'INT', isCommand: true },
+];
 exports.UDT_MOTOR = [
     { key: 'CMD_LOCAL_START', offset: '0.0', type: 'BOOL' },
     { key: 'CMD_LOCAL_STOP', offset: '0.1', type: 'BOOL' },
-    { key: 'CMD_ID', offset: '2', type: 'INT' },
-    { key: 'CMD_CODE', offset: '4', type: 'INT' },
     { key: 'ACK_ID', offset: '16', type: 'INT' },
     { key: 'ACK_CODE', offset: '18', type: 'INT' },
     { key: 'ACK_RESULT', offset: '20', type: 'INT' },

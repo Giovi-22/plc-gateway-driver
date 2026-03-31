@@ -99,9 +99,9 @@ let TagManagerService = TagManagerService_1 = class TagManagerService {
     }
     instantiateDevice(conf) {
         if (conf.type === 'MOTOR') {
-            this.devices.set(conf.id, new Motor_1.Motor(conf.id, conf.db, conf.offset));
+            this.devices.set(conf.id, new Motor_1.Motor(conf.id, conf.db, conf.offset, conf.commandDb, conf.commandOffset));
         }
-        else if (conf.type === 'GENERIC') {
+        else if (conf.type === 'GENERIC' || conf.type === 'SYSTEM') {
             this.devices.set(conf.id, new CustomTag_1.CustomTag(conf.id, conf.db, conf.offset, conf.dataType || 'REAL'));
         }
     }

@@ -1,19 +1,23 @@
 export interface SignalTemplate {
   key: string;
-  offset: string; // Ej: "32.0" o "14.0"
-  type: 'BOOL' | 'INT' | 'REAL' | 'TIME';
+  offset: string; // Ej: "32.0" o "14"
+  type: 'BOOL' | 'INT' | 'REAL' | 'TIME' | 'WORD' | 'DWORD';
+  isCommand?: boolean; // Flag para indicar que la señal pertenece al bloque de escritura (DB3)
 }
 
+// Estructura de Comandos SCADA en DB3 (6 bytes totales)
+export const UDT_REMOTE_CMD: SignalTemplate[] = [
+  { key: 'CMD_ID', offset: '0', type: 'INT', isCommand: true },
+  { key: 'CMD_CODE', offset: '2', type: 'INT', isCommand: true },
+  { key: 'CMD_LAST_ID', offset: '4', type: 'INT', isCommand: true },
+];
+
 export const UDT_MOTOR: SignalTemplate[] = [
-  // --- COMANDOS FÍSICOS LOCALES ---
+  // --- COMANDOS FÍSICOS LOCALES (Lectura de estado) ---
   { key: 'CMD_LOCAL_START', offset: '0.0', type: 'BOOL' },
   { key: 'CMD_LOCAL_STOP',  offset: '0.1', type: 'BOOL' },
 
-  // --- COMANDOS SCADA (JOB-BASED INTERFACE / EVENT SEQUENCING) ---
-  { key: 'CMD_ID', offset: '2', type: 'INT' },
-  { key: 'CMD_CODE', offset: '4', type: 'INT' },
-
-  // --- RESPUESTAS DEL PLC (ACK) ---
+  // --- RESPUESTAS DEL PLC (ACK) en DB1 ---
   { key: 'ACK_ID', offset: '16', type: 'INT' },
   { key: 'ACK_CODE', offset: '18', type: 'INT' },
   { key: 'ACK_RESULT', offset: '20', type: 'INT' }, // 0=none, 1=ok, 2=rejected, 3=invalid
@@ -43,5 +47,5 @@ export const UDT_MOTOR: SignalTemplate[] = [
   { key: 'STAT_STOPPED',      offset: '52.1', type: 'BOOL' },
   { key: 'STAT_FAULT',        offset: '52.2', type: 'BOOL' },
   { key: 'STAT_STARTING',     offset: '52.3', type: 'BOOL' },
-  { key: 'STAT_STOPPING',     offset: '52.4', type: 'BOOL' }, // 'blocked' in DB but represents intermediate stop
+  { key: 'STAT_STOPPING',     offset: '52.4', type: 'BOOL' }, 
 ];
